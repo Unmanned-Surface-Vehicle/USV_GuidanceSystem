@@ -6,15 +6,38 @@ from    std_msgs.msg import String
 # import  sensor_msgs
 from    sensor_msgs.msg import JointState
 
-def airboat_joint_state():
-    pub     = rospy.Publisher('/airboat/joint_states', JointState, queue_size=10)
-    rospy.init_node('airboat_joint_state', anonymous=True)
-    rate    = rospy.Rate(1000) # 10hz
-    joint_state_msg = JointState()
-    position_vector = [4]
+def airboat_guider():
+
+    # ROS node initialization
+    rospy.init_node('airboat_guider', anonymous=True)
+
+    # Publishers for joint turning and thruster control
+    pub_joint               = rospy.Publisher('/airboat/joint_states',      JointState, queue_size=10)
+    pub_thruster            = rospy.Publisher('/airboat/thruster_command',  JointState, queue_size=10)
+
+    # Publish freqeuncy for both msgs (joint and thruster)
+    rate                    = rospy.Rate(1000) # 10hz
+
+    # Handle for publishing
+    joint_state_msg         = JointState()
+    thruster_command_msg    = JointState()
+
+    # Values to be published
+    joint_position_vector       = [1]
+    thruster_position_vector    = [4]
+
     while not rospy.is_shutdown():
-        joint_state_msg.position = position_vector
-        pub.publish(joint_state_msg)
+
+        joint_state_msg.position        = ['fwd_joint']
+        joint_state_msg.position        = joint_position_vector
+
+        thruster_command_msg.name       = ['fwd']
+        thruster_command_msg.position   = thruster_position_vector
+        
+
+        pub_joint.publish(joint_state_msg)
+        pub_thruster.publish(thruster_command_msg)
+
         rate.sleep()
 
 def JSHOP_to_ROS():
@@ -41,7 +64,7 @@ def JSHOP_to_ROS():
 if __name__ == '__main__':
     # JSHOP_to_ROS()
     try:
-        airboat_joint_state()
+        airboat_guider()
     except rospy.ROSInterruptException:
         pass
 
