@@ -6,7 +6,11 @@ from    std_msgs.msg import String
 # import  sensor_msgs
 from    sensor_msgs.msg import JointState
 
+flag_direction = 0
+
 def airboat_guider():
+
+    global flag_direction
 
     # ROS node initialization
     rospy.init_node('airboat_guider', anonymous=True)
@@ -23,10 +27,29 @@ def airboat_guider():
     thruster_command_msg    = JointState()
 
     # Values to be published
-    joint_position_vector       = [1]
-    thruster_position_vector    = [4]
+    joint_position_vector       = [0]
+    thruster_position_vector    = [0]
+
+    # counter for JSHOP parser
+    counter = 0
 
     while not rospy.is_shutdown():
+
+        # read JSHOP plan each 10 seconds
+        counter = counter +1
+        if counter == 1000*10:
+            counter = 0
+            JSHOP_to_ROS()
+
+        if flag_direction == 0:
+            thruster_position_vector    = [4]   # go ahead
+            print "keep current motion"
+        elif flag_direction == 1:
+            joint_position_vector       = [1]   # turn right
+            print "go right"
+        elif flag_direction == 2:
+            joint_position_vector       = [-1]  # turn left
+            print "go left"
 
         joint_state_msg.position        = ['fwd_joint']
         joint_state_msg.position        = joint_position_vector
@@ -41,6 +64,9 @@ def airboat_guider():
         rate.sleep()
 
 def JSHOP_to_ROS():
+
+    global flag_direction
+    
     # open JSHOP plan ".txt" file
     JSHOP_Plan = open("/home/darlan/Darlan/Projects/Artificial-Inteligence/Planning/Hierarchical-Task-Network/jshop2/examples/colregs/plan.txt","r") #opens file with name of "test.txt"
 
@@ -62,7 +88,6 @@ def JSHOP_to_ROS():
             print "Go left"
 
 if __name__ == '__main__':
-    # JSHOP_to_ROS()
     try:
         airboat_guider()
     except rospy.ROSInterruptException:
