@@ -2,17 +2,25 @@
 # license removed for brevity
 
 import  rospy
+import  os
+import  time
 from    std_msgs.msg import String
-# import  sensor_msgs
 from    sensor_msgs.msg import JointState
 from    gazebo_msgs.msg import ModelStates
 
-flag_direction = 0
 
-# information about collision
-string = '        (at         intruder    GC_B3       )        \n'
+####################
+# Global Variables #
+####################
+flag_direction  = 0                                                             # flag for USV direction decision
+string          = '        (at         intruder    GC_B3       )        \n'     # information about collision
+evaded          = 0
+counter         = 0
+counter2        = 0
 
 def ros_feedback_callback(data):
+    
+    global evaded
     # rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.pose[3].position.x)
     # rospy.loginfo("Airboat  x: %d y: %d", data.pose[1].position.x, data.pose[1].position.y)
     # rospy.loginfo("Buyo     x: %d y: %d", data.pose[3].position.x, data.pose[3].position.y)
@@ -20,48 +28,59 @@ def ros_feedback_callback(data):
     models_position_airboat     = 1
     models_position_intruder    = 2
     
-    if ((abs(data.pose[models_position_intruder].position.x - data.pose[models_position_airboat].position.x) < 10) and 
-        (abs(data.pose[models_position_intruder].position.y - data.pose[models_position_airboat].position.y) < 10)):
+    if ((abs(data.pose[models_position_intruder].position.x - data.pose[models_position_airboat].position.x) < 7.5) and 
+        (abs(data.pose[models_position_intruder].position.y - data.pose[models_position_airboat].position.y) < 7.5)):
 
-        print "Near"
+        if evaded == 0:
+
+            # print "Near"
         
-        # Copy file content as a string vector
-        f           = open("/home/darlan/Darlan/Projects/Artificial-Inteligence/Planning/Hierarchical-Task-Network/jshop2/examples/colregs/problem.pddl", "r")
-        content     = f.readlines()
-        f.close()
+            # Copy file content as a string vector
+            f           = open("/home/darlan/Darlan/Projects/Artificial-Inteligence/Planning/Hierarchical-Task-Network/jshop2/examples/colregs/problem.pddl", "r")
+            content     = f.readlines()
+            f.close()
 
-        # print content
+            # print content
 
-        # # Prepare for overwriting last 6 lines of the file with new information about possible collision
-        # print content[-6]
-        content[-6] = string
-        # print content[-6]
+            # # Prepare for overwriting last 6 lines of the file with new information about possible collision
+            # print content[-6]
+            content[-6] = string
+            # print content[-6]
 
-        # Write changes on file (overwriting)
-        f = open("/home/darlan/Darlan/Projects/Artificial-Inteligence/Planning/Hierarchical-Task-Network/jshop2/examples/colregs/problem.pddl", "w")
-        for line in content:
-            f.write(line)
-        f.close()
+            # Write changes on file (overwriting)
+            f           = open("/home/darlan/Darlan/Projects/Artificial-Inteligence/Planning/Hierarchical-Task-Network/jshop2/examples/colregs/problem.pddl", "w")
+            for line in content:
+                f.write(line)
+            f.close()
+
+            os.chdir("/home/darlan/Darlan/Projects/Artificial-Inteligence/Planning/Hierarchical-Task-Network/jshop2")
+            os.system("make colregs")
+
+            evaded = 1
 
 def airboat_guider():
 
     global flag_direction
     global string
+    global evaded
+
+    # os.chdir("/home/darlan/Darlan/Projects/Artificial-Inteligence/Planning/Hierarchical-Task-Network/jshop2")
+    # os.system("make colregs")
 
     # ROS node initialization
     rospy.init_node('airboat_guider', anonymous=True)
     rospy.Subscriber("/gazebo/model_states", ModelStates, ros_feedback_callback)
 
     # Publishers for joint turning and thruster control
-    pub_joint               = rospy.Publisher('/airboat/joint_states',      JointState, queue_size=10)
-    pub_thruster            = rospy.Publisher('/airboat/thruster_command',  JointState, queue_size=10)
+    pub_joint                   = rospy.Publisher('/airboat/joint_states',      JointState, queue_size=10)
+    pub_thruster                = rospy.Publisher('/airboat/thruster_command',  JointState, queue_size=10)
 
     # Publish freqeuncy for both msgs (joint and thruster)
-    rate                    = rospy.Rate(1000) # 10hz
+    rate                        = rospy.Rate(1000) # 10hz
 
     # Handle for publishing
-    joint_state_msg         = JointState()
-    thruster_command_msg    = JointState()
+    joint_state_msg             = JointState()
+    thruster_command_msg        = JointState()
 
     # Values to be published
     joint_position_vector       = [0]
@@ -76,18 +95,26 @@ def airboat_guider():
         counter = counter +1
         if counter == 1000*5:
             counter = 0
-            # JSHOP_to_ROS()
+            JSHOP_to_ROS()
 
         # boat direction control
         if flag_direction == 0:
             thruster_position_vector    = [4]   # go ahead
+            joint_position_vector       = [0]   # align to center
             # print "go ahead"
 
         elif flag_direction == 1:
+            thruster_position_vector    = [1]   # go ahead
             joint_position_vector       = [-1]   # turn right
             # print "go right"
 
         elif flag_direction == 2:
+            thruster_position_vector    = [1]   # go ahead
+            joint_position_vector       = [1]  # turn left
+            # print "go left"
+
+        elif flag_direction == 3:
+            thruster_position_vector    = [4]   # go ahead
             joint_position_vector       = [1]  # turn left
             # print "go left"
 
@@ -105,6 +132,7 @@ def airboat_guider():
 def JSHOP_to_ROS():
 
     global flag_direction
+    global counter
     
     # open JSHOP plan ".txt" file
     JSHOP_Plan = open("/home/darlan/Darlan/Projects/Artificial-Inteligence/Planning/Hierarchical-Task-Network/jshop2/examples/colregs/plan.txt","r") #opens file with name of "test.txt"
@@ -120,7 +148,12 @@ def JSHOP_to_ROS():
         print "New desired action:", new_direction_desired
 
         if new_direction_desired == 'c':
-            flag_direction = 1                              # go right flag
+            counter = counter +1
+            if counter < 3:
+                flag_direction = 1                              # go right flag
+            else:
+                print "Must be going straight"
+                flag_direction = 3
             # print "Go right"
         elif new_direction_desired == 'a':
             flag_direction = 2                              # go left flag
@@ -128,6 +161,8 @@ def JSHOP_to_ROS():
         else: 
             flag_direction = 0
             # print "Go ahead"
+
+    JSHOP_Plan.close()
 
 if __name__ == '__main__':
     try:
