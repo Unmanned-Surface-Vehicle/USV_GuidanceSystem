@@ -17,6 +17,8 @@ string          = '        (at         intruder    GC_B3       )        \n'     
 evaded          = 0
 counter         = 0
 counter2        = 0
+counter3        = 0
+counter4        = 0
 
 def ros_feedback_callback(data):
     
@@ -28,8 +30,8 @@ def ros_feedback_callback(data):
     models_position_airboat     = 1
     models_position_intruder    = 2
     
-    if ((abs(data.pose[models_position_intruder].position.x - data.pose[models_position_airboat].position.x) < 7.5) and 
-        (abs(data.pose[models_position_intruder].position.y - data.pose[models_position_airboat].position.y) < 7.5)):
+    if ((abs(data.pose[models_position_intruder].position.x - data.pose[models_position_airboat].position.x) < 8) and 
+        (abs(data.pose[models_position_intruder].position.y - data.pose[models_position_airboat].position.y) < 8)):
 
         if evaded == 0:
 
@@ -99,26 +101,29 @@ def airboat_guider():
 
         # boat direction control
         if flag_direction == 0:
-            thruster_position_vector    = [4]   # go ahead
+            thruster_position_vector    = [3]   # go ahead
             joint_position_vector       = [0]   # align to center
             # print "go ahead"
 
         elif flag_direction == 1:
-            thruster_position_vector    = [1]   # go ahead
-            joint_position_vector       = [-1]   # turn right
+            thruster_position_vector    = [2]       # go ahead
+            joint_position_vector       = [-0.5]      # turn right
             # print "go right"
 
         elif flag_direction == 2:
-            thruster_position_vector    = [1]   # go ahead
-            joint_position_vector       = [1]  # turn left
+            thruster_position_vector    = [1]       # go ahead
+            joint_position_vector       = [1]       # turn left
             # print "go left"
 
         elif flag_direction == 3:
-            thruster_position_vector    = [4]   # go ahead
-            joint_position_vector       = [1]  # turn left
-            # print "go left"
+            thruster_position_vector    = [4]       # go ahead
+            joint_position_vector       = [-0.3]       # turn right
 
-        joint_state_msg.position        = ['fwd_joint']
+        elif flag_direction == 4:
+            thruster_position_vector    = [2]       # go ahead
+            joint_position_vector       = [0.2]    # turn right
+
+        joint_state_msg.name            = ['fwd_joint']
         joint_state_msg.position        = joint_position_vector
 
         thruster_command_msg.name       = ['fwd']
@@ -133,6 +138,9 @@ def JSHOP_to_ROS():
 
     global flag_direction
     global counter
+    global counter2
+    global counter3
+    global counter4
     
     # open JSHOP plan ".txt" file
     JSHOP_Plan = open("/home/darlan/Darlan/Projects/Artificial-Inteligence/Planning/Hierarchical-Task-Network/jshop2/examples/colregs/plan.txt","r") #opens file with name of "test.txt"
@@ -149,11 +157,25 @@ def JSHOP_to_ROS():
 
         if new_direction_desired == 'c':
             counter = counter +1
-            if counter < 3:
-                flag_direction = 1                              # go right flag
+            if counter < 4:
+                flag_direction = 1                          # go right flag
             else:
                 print "Must be going straight"
-                flag_direction = 3
+                counter2 = counter2 +1
+                if counter2 < 3:
+                    flag_direction = 2                      # go left flag
+                else:
+                    counter3 = counter3 +1
+                    if counter3 < 3:
+                        flag_direction = 3                  # go left flag
+                    else:
+                        counter4 = counter4 +1
+                        if counter4 < 3:
+                            flag_direction = 4
+                        else:
+                            flag_direction = 0
+                    
+
             # print "Go right"
         elif new_direction_desired == 'a':
             flag_direction = 2                              # go left flag
